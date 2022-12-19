@@ -1,0 +1,1081 @@
+#! /bin/bash
+
+#auth=`zenity --forms --title "Authintaction" --text  "user: mohamed ps: adel" \
+#--add-entry "username" \
+#--add-password="password"`
+
+if ! [[ $auth == "mohamed|adel" ]] ; then
+    # Ansi color code variables
+    red="\e[0;91m"
+    blue="\e[0;94m"
+    expand_bg="\e[K"
+    blue_bg="\e[0;104m${expand_bg}"
+    red_bg="\e[0;101m${expand_bg}"
+    green_bg="\e[0;102m${expand_bg}"
+    green="\e[0;92m"
+    white="\e[0;97m"
+    bold="\e[1m"
+    uline="\e[4m"
+    reset="\e[0m"
+    
+    alias select="SELECT"
+    #zenity --info --title="success" --text="succses you now logged in"
+    set -f
+    export LC_COLLATE=C
+    shopt -s extglob
+    
+    PS3="BashSql>"
+    DBP="DB/"
+    CURDB=""
+    CDB=$DBP$CURDB"/"
+    function check_dataType {
+        # $1 value
+        # $2 tableName
+        # $3 datatype (colName to check datatype)
+        tableName=$1
+        intRegex='^[0-9]+$';
+        strRegex='^[a-zA-Z0-9_ -]+$';
+        dateRegex="^(?:(?:31(\/|-|\.)(?:0?[13578]|1[02]))\1|(?:(?:29|30)(\/|-|\.)(?:0?[13-9]|1[0-2])\2))(?:(?:1[6-9]|[2-9]\d)?\d{2})$|^(?:29(\/|-|\.)0?2\3(?:(?:(?:1[6-9]|[2-9]\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\d|2[0-8])(\/|-|\.)(?:(?:0?[1-9])|(?:1[0-2]))\4(?:(?:1[6-9]|[2-9]\d)?\d{2})$";
+        
+        datatype=`grep -w "$3" $CDB$2.struct | cut -d: -f2`;
+        if ! [[ $datatype ]] ; then
+            zenity --info --title="error" --text="this col doesnt exist $datatype";
+            return 0;
+        fi
+        
+        if [[ "$datatype" == "int" ]]; then
+            if	[[ $1 =~ $intRegex ]]; then
+                return 1;
+            else
+                return 0;
+            fi
+            elif [[ "$datatype" -eq "string" ]]; then
+            if	[[ $1 =~ $strRegex ]] ; then
+                return 1;
+            else
+                return 0;
+            fi
+        else
+            zenity --info --title="error" --text="Invalid datatype mustbe $datatype"
+        fi
+    }
+    
+    function progress {
+        (
+            echo "# شكل بس ^_^" ;
+            echo "10" ; sleep .5
+            echo "40" ; sleep .5
+            echo "# load database function" ;
+            echo "75" ; sleep .5
+            echo "100" ; sleep .25
+            echo "# done" ;
+        ) |
+        zenity --progress --no-cancel --auto-close \
+        --title="opening RDBMS {shelySQL}" \
+        --text="shelySQL is the best RDBMS by bash script" \
+        --percentage=0
+        
+        if [ "$?" = -1 ] ; then
+            zenity --error \
+            --text="you cancel program loading"
+            return 0;
+        fi
+        welcomeDB
+    }
+    
+    function IssetDB {
+        # $1 DataBase Name
+        DBName=$1
+        if [[ -d $DBP$DBName ]]; then
+            if grep -q -w "$DBName" $DBP"rdbms.config" ; then
+                return 1
+            else
+                return 0
+            fi
+        else
+            return 0
+        fi
+    }
+    
+    function DBLogin {
+        entrDBAcount=`zenity --forms --title "Database login {shelySQL}" --text  "login" \
+        --add-entry "username" \
+        --add-password="password"`
+        loginCheck=`grep -w -c "^$entrDBAcount$" $DBP$1/accounts.db`
+        if [[ $loginCheck > 0 ]] ; then
+            return 1
+        else
+            return 0
+        fi
+    }
+    
+    function use {
+        # $1 DataBase Name
+        DBName=$1
+        IssetDB $DBName
+        if (( $? == 1 )) ; then
+            DBLogin $DBName
+            if (( $? == 1 )) ; then
+                CURDB=$DBName;
+                CDB=$DBP$CURDB"/"
+            else
+                zenity --info --text="username or password are wrong"
+            fi
+        else
+            zenity --info --text="database not found";
+        fi
+    }
+    
+    function showDatabases {
+        # $1 DataBase Name
+        IFS=" "
+        DBases=(`ls -l $DBP | egrep '^d' | tr -s " "  | cut -d" " -f9 | tr "\n" " "`)
+        selectedDB=`zenity --list --height="300" --title="resualt of SELECT statement {shelySQL}" --column="databases" "${DBases[@]}"`
+        IssetDB $selectedDB
+        if [[ $selectedDB ]] ; then
+            use "$selectedDB"
+        else
+            zenity --error --title="db error {shelySQL}" --text="please select database first";
+        fi
+    }
+    
+    function dropDataBase {
+        # $1 DataBase Name
+        DBName=$1
+        IssetDB $DBName
+        if (( $? == 1 )) ; then
+            if [[ $DBName == $CURDB ]] ; then
+                CURDB="";
+                CDB=$DBP$CURDB"/"
+            fi
+            rm -r $DBP$DBName
+            return 1;
+        else
+            zenity --error --title="error {shelySQL}" --text="database not found";
+            return 0;
+        fi
+    }
+    
+    
+    
+    function createDb {
+        # $1 database name
+        dbname=$1
+        if [[ $dbname == "" ]]; then
+            zenity --error --title="error {shelySQL}" --text="cant empty name in database"
+            elif [[ $dbname =~ [/.:\|\-] ]]; then
+            zenity --error --title="error {shelySQL}" --text="this characters not allowed [ . / : - | ]"
+            elif [[ -e $DBP$dbname ]]; then
+            zenity --info --title="error {shelySQL}" --text="this database name is already used"
+            elif [[ $dbname =~ ^[a-zA-Z][a-zA-Z0-9]+$ ]]; then
+            DbAccount=`zenity --forms --title="login {shelySQL}" --add-entry="DB username" --add-password="DB password"`
+            if [[ $DbAccount ]] ; then
+                mkdir "$DBP$dbname"
+                touch "$DBP$dbname/db.config"
+                touch "$DBP$dbname/accounts.db"
+                echo $DbAccount > "$DBP$dbname/accounts.db"
+                echo "$dbname" >> "$DBP/rdbms.config"
+            else
+                zenity --info --title="error" --text="please insert valid account"
+                return 0
+            fi
+        else
+            zenity --info --title="error" --text="Database name can't start with numbers or special characters"
+        fi
+    }
+    
+    function showDatabasesAndDrop {
+        # $1 DataBase Name
+        IFS=" "
+        DBases=(`ls -l $DBP | egrep '^d' | tr -s " "  | cut -d" " -f9 | tr "\n" " "`)
+        selectedDB=`zenity --list --height="300" --title="resualt of SELECT statement {shelySQL}" --column="databases" "${DBases[@]}"`
+        if [[ $selectedDB ]] ; then
+            zenity --question --width="500" --title="drop DB {shelySQL}" --text="are you sure to drop DB : $selectedDB"
+            if [[ $? -eq 0 ]] ; then
+                dropDataBase "$selectedDB"
+                if [[ $? -eq 1 ]] ; then
+                    zenity --info --text="database $selectedDB was drop"
+                fi
+            fi
+        fi
+    }
+    
+    function IssetTable {
+        # $1 Table Name
+        tableName=$1
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --error --title="error {shelySQL}" --text="please select vaild database to use it";
+            return 0;
+        fi
+        if [[ -f $CDB$tableName.data && -f $CDB$tableName.struct ]]; then
+            if grep -q -w "$tableName" $CDB"db.config" ; then
+                return 1
+            else
+                return 0
+            fi
+        else
+            return 0
+        fi
+    }
+    
+    function dropTable {
+        # $1 table Name
+        tableName=$1
+        IssetDB $CURDB
+        if (( $? == 1 )) ; then
+            zenity --question --title="deleting table" --text="are you sure to delete this table"
+            if (( $? == 0 )) ; then
+                rm $CDB$tableName.data
+                rm $CDB$tableName.struct
+                grep -w -v "$tableName" "$CDB"/db.config > "$CDB"db.config.new && rm "$CDB"db.config && mv "$CDB"db.config.new "$CDB"db.config;
+            fi
+        else
+            zenity --info --title="error" --text="database not found"
+        fi
+    }
+    
+    function drop {
+        if [[ $# -eq 2 ]] ; then
+            if [[ ${1^^}  == "DATABASE" ]] ; then
+                dropDataBase $2
+                elif [[ ${1^^} == "TABLE" ]] ; then
+                dropTable $2
+            else
+                zenity --info --title="error" --text="syntax error"
+            fi
+        else
+            zenity --info --title="error" --text="syntax error"
+        fi
+    }
+    
+    function create {
+        if [[ $# -eq 2 ]] ; then
+            if [[ ${1^^} == "DATABASE" ]] ; then
+                createDb $2
+                elif [[ ${1^^} == "TABLE" ]] ; then
+                CreateGUITable $2
+            else
+                zenity --info --title="error" --text="syntax error"
+            fi
+        else
+            zenity --info --title="error" --text="syntax error"
+        fi
+    }
+    
+    function showTables {
+        # $1 DataBase Name
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="please use database first "
+            return 0;
+        fi
+        declare -a TablesName
+        IFS=" "
+        TablesName+=( `cut -d: -f1 $CDB"db.config" | tr "\n" " "` )
+        
+        if ! [[ $TablesName ]] ; then
+            zenity --info --text="No tables are here"
+            return 0;
+        fi
+        selectedTable=`zenity --list --height="300" --ok-label "display table" --title="tables" --column="table" ${TablesName[@]}`
+        if [[ $selectedTable ]] ; then
+            getAllData $selectedTable
+        fi
+    }
+    
+    function show {
+        if [[ $# -eq 1 ]] ; then
+            if [[ ${1^^}  == "DATABASES" ]] ; then
+                showDatabases
+                elif [[ ${1^^} == "TABLES" ]] ; then
+                showTables $CURDB
+            else
+                zenity --error --title="error" --text="syntax error"
+            fi
+        else
+            zenity --error --title="error" --text="syntax error"
+        fi
+    }
+    
+    function showTablesAndDrop {
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="please use database first "
+            return 0
+        fi
+        declare -a TablesName
+        IFS=" "
+        TablesName+=( `cut -d: -f1 $CDB"db.config" | tr "\n" " "` )
+        
+        if ! [[ $TablesName ]] ; then
+            zenity --info --text="No tables are here"
+            return 0;
+        fi
+        selectedTable=`zenity --list --height="300" --ok-label "drop" --title="tables" --column="table" ${TablesName[@]}`
+        if [[ $selectedTable ]] ; then
+            dropTable $selectedTable
+        fi
+    }
+    function IssetColumn {
+        # $1 Table Name
+        # $2 column Name
+        tableName=$1
+        columnName=$2
+        IssetTable $tableName
+        if (( $? == 1 )) ; then
+            if grep -q -w "$columnName" $CDB$tableName.struct ; then
+                return 1
+            else
+                return 0
+            fi
+        else
+            zenity --info --title="error" --text="wrong table name"
+            return 0
+        fi
+    }
+
+    function CreateTable {
+        # $1 Table name
+        tableName=$1
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --error --title="error" --text="please select vaild database to use it";
+            return 0;
+        fi
+        intRegex='^[0-9]+$';
+        strRegex='^[a-zA-Z][a-zA-Z0-9]+$';
+        dateRegex="^(?:(?:31(\/|-|\.)(?:0?[13578]|1[02]))\1|(?:(?:29|30)(\/|-|\.)(?:0?[13-9]|1[0-2])\2))(?:(?:1[6-9]|[2-9]\d)?\d{2})$|^(?:29(\/|-|\.)0?2\3(?:(?:(?:1[6-9]|[2-9]\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\d|2[0-8])(\/|-|\.)(?:(?:0?[1-9])|(?:1[0-2]))\4(?:(?:1[6-9]|[2-9]\d)?\d{2})$";
+        if [[ $tableName =~ $strRegex ]] ; then
+            type --info --text="table name must be [a-z captial or small letters and numbers not in the first]";
+            return 0;
+        fi
+        typeset -i firstNum
+        typeset -i numOfCol
+        typeset -i errors
+        typeset -i sizeOfColumn
+        errors=0
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            touch $CDB$tableName.data;
+            touch $CDB$tableName.struct;
+            echo "$tableName" >> $CDB"db.config";
+            read -p "number of columns : " numOfCol;
+            select a in "add column" "end"
+            do
+                if [[ $REPLY -eq 1 ]]; then
+                    read -p "Enter Column Name : " nameOfColumn
+                    read -p "Enter Column type : " typeOfColumn
+                    read -p "Enter Column size : " sizeOfColumn
+                    read -p "(primary - not) : " primOfColumn
+                    IssetColumn $tableName $nameOfColumn
+                    if [[ $? -eq 1 ]] ; then
+                        zenity --info --title="error" --text="column name is exist"
+                        return 0
+                    fi
+                    textErr=""
+                    if ! [[ $nameOfColumn =~ $strRegex ]] ; then
+                        textErr+="\n-column name cant be sepical character ( a : z ), ( 1 : 9 ) ,and ( _ - )"
+                        errors=$errors+1
+                    fi
+                    if ! [[ $typeOfColumn == "string" || $typeOfColumn == "int" || $typeOfColumn == "date" ]] ; then
+                        textErr+="\n-we have only (string - int - date)"
+                        errors=$errors+1
+                    fi
+                    if ! [[ $sizeOfColumn =~ $intRegex ]] ; then
+                        textErr+="\n-wrong size please enter only numbers"
+                        errors=$errors+1
+                    fi
+                    if ! [[ $primOfColumn == "primary" || $primOfColumn == "not" ]] ; then
+                        textErr+="\n-we have only (primary - not)"
+                        errors=$errors+1
+                    fi
+                    
+                    if [[ $primOfColumn == "primary" && $typeOfColumn != "int" ]] ; then
+                        textErr+="\n-primary key must be int"
+                        errors=$errors+1
+                    fi
+                    
+                    if ! [[ `cut -d: -f4 $CDB$tableName.struct | grep -w -c "^primary$"` -eq 1 ]] ; then
+                        textErr+="you can not add more than primary key"
+                        errors=$errors+1
+                    fi
+                    
+                    if [[ $errors -gt 0 ]] ; then
+                        zenity --info --title="error" --text="$textErr"
+                        continue;
+                    else
+                        echo "$nameOfColumn":"$typeOfColumn":"$sizeOfColumn":"$primOfColumn" >> $CDB$tableName.struct
+                    fi
+                    elif [[ $a -eq "end" ]]; then
+                    break;
+                fi
+            done
+        else
+            zenity --error --title="error" --text="table name are exist"
+        fi
+    }
+    
+    function CreateGUITable {
+        # $1 Table name
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            type --info --text="please select vaild database to use it";
+            return 0;
+        fi
+        intRegex='^[0-9]+$';
+        strRegex='^[a-zA-Z][a-zA-Z0-9]+$';
+        dateRegex="^(?:(?:31(\/|-|\.)(?:0?[13578]|1[02]))\1|(?:(?:29|30)(\/|-|\.)(?:0?[13-9]|1[0-2])\2))(?:(?:1[6-9]|[2-9]\d)?\d{2})$|^(?:29(\/|-|\.)0?2\3(?:(?:(?:1[6-9]|[2-9]\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\d|2[0-8])(\/|-|\.)(?:(?:0?[1-9])|(?:1[0-2]))\4(?:(?:1[6-9]|[2-9]\d)?\d{2})$";
+        tableName=`zenity --entry --text="enter table name"`
+        if ! [[ $tableName ]] ; then
+            zenity --info --text="table can not be empty";
+            return 0
+        fi
+        if ! [[ $tableName =~ $strRegex ]] ; then
+            zenity --info --text="table name must be [a-z captial or small letters and numbers not in the first]";
+            return 0
+        fi
+        typeset -i firstNum
+        typeset -i numOfCol
+        typeset -i errors
+        typeset -i sizeOfColumn
+        errors=0
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            touch $CDB$tableName.data;
+            touch $CDB$tableName.struct;
+            echo "$tableName" >> $CDB"db.config";
+            
+            colCount=`zenity --entry --text="count of columns"`
+            re='^[0-9]+$'
+            if ! [[ $colCount =~ $re ]] ; then
+                zenity --info --text="col coun must be number";
+                return 0
+            fi
+            typeset -i pointerOfCol
+            pointerOfCol=0
+            while [[ $pointerOfCol -lt $colCount ]]
+            do
+                IFS="|"
+                colas=(`zenity --forms --title "Add new column" --text  "column" \
+                    --height="250" --width="600" \
+                    --add-entry "name" \
+                    --add-entry="type (string-int-date)" \
+                    --add-entry="size" \
+                --add-entry="primary - not"`)
+                if [[ $? -eq 1 ]] ; then
+                    #cancel loop of add columns
+                    $pointerOfCol = $colCount
+                    continue
+                fi
+                nameOfColumn=${colas[0]}
+                typeOfColumn=${colas[1]}
+                sizeOfColumn=${colas[2]}
+                primOfColumn=${colas[3]}
+                IssetColumn $tableName $nameOfColumn
+                if [[ $? -eq 1 ]] ; then
+                    textErr+=("\n-column name is exist")
+                    errors=$errors+1
+                fi
+                if ! [[ $nameOfColumn =~ $strRegex ]] ; then
+                    textErr+=("\n-column name cant be sepical character ( a : z ), ( 1 : 9 ) ,and ( _ - )")
+                    errors=$errors+1
+                fi
+                if ! [[ $typeOfColumn == "string" || $typeOfColumn == "int" || $typeOfColumn == "date" ]] ; then
+                    textErr+=("\n-we have only (string - int - date)")
+                    errors=$errors+1
+                fi
+                if ! [[ $sizeOfColumn =~ $intRegex ]] ; then
+                    textErr+=("\n-wrong size please enter only numbers")
+                    errors=$errors+1
+                fi
+                if ! [[ $primOfColumn == "primary" || $primOfColumn == "not" ]] ; then
+                    textErr+=("\n-we have only (primary - not)")
+                    errors=$errors+1
+                fi
+                isPrimExist=`cut -d: -f4 $CDB$tableName.struct | grep -w -c "^primary$"`;
+                if ! [[ $isPrimExist -eq 0 ]] && [[ "$primOfColumn" == "primary" ]] ; then
+                    textErr+=("you can not add more than primary key")
+                    errors=$errors+1
+                fi
+                
+                if [[ $primOfColumn == "primary" && $typeOfColumn != "int" ]] ; then
+                    textErr+=("\n-primary key must be int")
+                    errors=$errors+1
+                fi
+                if [[ $errors -gt 0 ]] ; then
+                    zenity --info --title="error" --text="${textErr[@]}"
+                    pointerOfCol=$pointerOfCol
+                    errors=0
+                    textErr=""
+                    return 0
+                else
+                    pointerOfCol=$pointerOfCol+1
+                    echo "$nameOfColumn":"$typeOfColumn":"$sizeOfColumn":"$primOfColumn" >> $CDB$tableName.struct
+                fi
+            done
+        else
+            zenity --info --text="table name are exist"
+        fi
+    }
+    
+    function addColumn {
+	tableName=$1
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            zenity --error --title="error" --text="please select valid table"
+            return 0
+        fi
+
+        IFS="|"
+        colas=(`zenity --forms --title "Add new column" --text  "column" \
+            --height="250" --width="600" \
+            --add-entry "name" \
+            --add-entry="type (string-int-date)" \
+            --add-entry="size" \
+        --add-entry="primary - not"`)
+        if [[ $? -eq 1 ]] ; then
+            #cancel loop of add columns
+            $pointerOfCol = $colCount
+            return 0
+        fi
+        nameOfColumn=${colas[0]}
+        typeOfColumn=${colas[1]}
+        sizeOfColumn=${colas[2]}
+        primOfColumn=${colas[3]}
+        IssetColumn $tableName $nameOfColumn
+        if [[ $? -eq 1 ]] ; then
+            textErr+=("\n-column name is exist")
+            errors=$errors+1
+        fi
+        if ! [[ $nameOfColumn =~ $strRegex ]] ; then
+            textErr+=("\n-column name cant be sepical character ( a : z ), ( 1 : 9 ) ,and ( _ - )")
+            errors=$errors+1
+        fi
+        if ! [[ $typeOfColumn == "string" || $typeOfColumn == "int" || $typeOfColumn == "date" ]] ; then
+            textErr+=("\n-we have only (string - int - date)")
+            errors=$errors+1
+        fi
+        if ! [[ $sizeOfColumn =~ $intRegex ]] ; then
+            textErr+=("\n-wrong size please enter only numbers")
+            errors=$errors+1
+        fi
+        if ! [[ $primOfColumn == "primary" || $primOfColumn == "not" ]] ; then
+            textErr+=("\n-we have only (primary - not)")
+            errors=$errors+1
+        fi
+        isPrimExist=`cut -d: -f4 $CDB$tableName.struct | grep -w -c "^primary$"`;
+        if ! [[ $isPrimExist -eq 0 ]] && [[ "$primOfColumn" == "primary" ]] ; then
+            textErr+=("you can not add more than primary key")
+            errors=$errors+1
+        fi
+        
+        if [[ $primOfColumn == "primary" && $typeOfColumn != "int" ]] ; then
+            textErr+=("\n-primary key must be int")
+            errors=$errors+1
+        fi
+        if [[ $errors -gt 0 ]] ; then
+            zenity --info --title="error" --text="${textErr[@]}"
+            pointerOfCol=$pointerOfCol
+            errors=0
+            textErr=""
+            return 0
+        else
+            pointerOfCol=$pointerOfCol+1
+            echo "$nameOfColumn":"$typeOfColumn":"$sizeOfColumn":"$primOfColumn" >> $CDB$tableName.struct
+        fi
+    }
+    
+    function getData {
+        # $1 tableName
+        # $2 column Name
+        # $3 value of wher conditions
+        tableName=$1
+        colName=$2
+        condVal=$3
+        typeset -a rows
+        typeset -a cols
+        
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="\n-please select database first"
+            return 0;
+        fi
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="wrong table name"
+            return 0;
+        fi
+        IssetColumn $tableName $colName
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="wrong column name"
+            return 0
+        fi
+        
+        tabName=$CDB/$tableName.data;
+        declare -a col
+        declare -a cols
+        IFS=" "
+        col+=( `cut -d: -f1 $CDB$tableName.struct | tr "\n" " "` )
+        for i in ${col[@]}
+        do
+            cols+=(--column=$i)
+        done
+        IFS=":"
+        rows+=(`grep -w "$condVal" $CDB$tableName.data | tr "\n" ":"`)
+        gt=`zenity --list --title="resualt of SELECT statement" \
+        --height="760" --width="400" \
+        ${cols[@]} "${rows[@]}"`
+    }
+    
+    function getAllData {
+        # $1 tableName
+        tabName=$CDB$1.data;
+        tableName=$1
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="please select database first"
+            return 0;
+        fi
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="wrong table name"
+            return 0;
+        fi
+        declare -a getAllDataCol
+        declare -a getAllDataCols
+        IFS=" "
+        getAllDataCol+=( `cut -d: -f1 $CDB$1.struct | tr "\n" " "` )
+        for i in ${getAllDataCol[@]}
+        do
+            getAllDataCols+=(--column=$i)
+        done
+        IFS=":"
+        getAllDataRows+=( `tr "\n" ":" < $tabName` )
+        dat=`zenity --list --title="resualt of SELECT statement" \
+        --height="760" --width="400" \
+        ${getAllDataCols[@]} "${getAllDataRows[@]}"`
+        unset getAllDataCols;
+        unset getAllDataRows;
+        unset getAllDataCol;
+        unset dat;
+        
+    }
+    
+    function unq {
+        # $1 value
+        # $2 table
+        # $3 column
+        tabName=$CDB$2.data;
+        if grep -q -w "$1" $tabName ; then
+            return 0;
+        else
+            return 1;
+        fi
+    }
+    
+    function isPrimary {
+        # $1 table
+        # $2 column
+        tableName=$1
+        columnName=$2
+        tabStruct=$CDB$tableName.struct;
+        IssetColumn "$tableName" "$columnName"
+        if (( $? == 1 )) ; then
+            numOfCol=`grep -w -n "$columnName" $tabStruct | cut -d: -f1` ;
+            IFS=':'
+            fields=( `awk -F: -v line="$numOfCol" '{if(NR==line)print $0;}' $tabStruct` )
+            if [[ ${fields[3]} = "primary" ]]; then
+                return 1;
+            else
+                return 0;
+            fi
+        else
+            return 0;
+        fi
+    }
+    
+    function update {
+        #update table set changeCol = newVal where condCol = condVal
+        # $1 table
+        # $2 set
+        # $3 changeCol
+        # $4 =
+        # $5 newVal
+        # $6 where
+        # $7 condition column
+        # $8 =
+        # $9 codition value
+        
+        
+        IssetTable $1
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid table name : $1"
+            return 0
+        fi
+        
+        if [[ ${2^^} != "SET" || ${6^^} != "WHERE" || ${4} != "="  || ${8} != "=" ]] ; then
+            zenity --info --text="syntax error"
+            return 0
+        fi
+        
+        IssetColumn $1 $3
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid column name : $3"
+            return 0
+        fi
+        
+        IssetColumn $1 $7
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid column name : $7"
+            return 0
+        fi
+        
+        check_dataType $5 $1 $3
+        if [[ $? == 0 ]] ; then
+            return 0
+        fi
+        
+        primaryNum=`cut -d: -f4 $CDB$1.struct | grep -w -n "^primary$" | cut -d: -f1`
+        primaryKeyCol=`sed $primaryNum"p;d" $CDB$1.struct | cut -d: -f1`
+        if [[ "$3" == "$primaryKeyCol" ]] ; then
+            newVal=$5
+            IsPrimRepeat=`cut -d: -f$primaryNum $CDB$1.data | grep -w "^$newVal$"`
+            if [[ $IsPrimRepeat ]] ; then
+                zenity --info --text="primary key can not repeat"
+                return 0
+            fi
+        fi
+        tableStruct=$CDB$1.struct;
+        tabName=$CDB$1.data;
+        replacing_dt=$5
+        condValue=$9
+        colNumInStruct=`cut -d: -f1 $tableStruct | grep -w -n "$7" | cut -d: -f1`;
+        valColNum=`grep -w -n "$3" $tableStruct | cut -d: -f1`;
+        awk -v val="$replacing_dt" -v condVal="$condValue" -v valColNum="$valColNum" -v condCol="$colNumInStruct" 'BEGIN{FS=OFS=":";} $condCol==condVal{$valColNum = val;} 1' $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
+    }
+    
+    function delete {
+        # $1 from
+        # $2 table $1
+        # $3 where
+        # $4 condition column $2
+        # $5 =
+        # $6 codition value $3
+        
+        IssetTable $2
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid table name"
+            return 0
+        fi
+        
+        if [[ ${1^^} != "FROM" || ${3^^} != "WHERE" || ${5} != "=" ]] ; then
+            zenity --info --text="syntax error"
+            return 0
+        fi
+        
+        IssetColumn $2 $4
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid column name"
+            return 0
+        fi
+        
+        tableStruct=$CDB$2.struct;
+        tabName=$CDB$2.data;
+        condValue=$6
+        colNumInStruct=`cut -d: -f1 $tableStruct | grep -w -n "$4" | cut -d: -f1`;
+        awk -v condVal="$condValue" -v condCol="$colNumInStruct" \
+        'BEGIN{FS=OFS=":";} $condCol==condVal{$0="";} 1' $tabName \
+        | awk NF > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
+    }
+    
+    function insert {
+        # $1 table
+        # $2 values
+        typeset -a vals
+        typeset -a values
+        typeset -a valuesAfterCheck
+        typeset -i errors
+        errors=0
+        tableName=$2
+        IssetTable $2
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid table name"
+            return 0
+        fi
+        if [[ ${1^^} != "INTO" || ${3^^} != "VALUES" ]] ; then
+            zenity --info --text="syntax error"
+            return 0
+        fi
+        tabName=$CDB$tableName.data;
+        tabStructName=$CDB$tableName.struct;
+        IFS="@"
+        for vals in $@
+        do
+            if [[ "$vals" != "$1" && "$vals" != "$2" && "$vals" != "$3" && "$vals" != "," ]] ; then
+                values+=("$vals")
+            fi
+        done
+        IFS=" "
+        res=( `cut -d: -f1 $tabStructName | tr "\n" " "` )
+        dataTypes=( `cut -d: -f2 $tabStructName | tr "\n" " "` )
+        size=( `cut -d: -f3 $tabStructName | tr "\n" " "` )
+        primary=( `cut -d: -f4 $tabStructName | tr "\n" " "` )
+        if [[ ${#res[@]} -eq ${#values[@]} ]] ; then
+            typeset -i i
+            i=0
+            while [[ $i -lt ${#res[@]} ]]
+            do
+                check_dataType "${values[$i]}" "$2" "${res[$i]}"
+                if [[ $? -eq 0 ]] ; then
+                    zenity --info --text= "error in column ${res[$i]} must be ${dataTypes[$i]}"
+                    errors=$errors+1
+                fi
+                if [[ "${primary[$i]}" == "primary" ]] ; then
+                    if [[ `cut -d: -f"${i+1}" $tabName | grep -c -w "^$values$"` -gt 0 ]] ; then
+                        zenity --info --text="you cannot repeat primary key"
+                        return 0;
+                    fi
+                fi
+                valuesAfterCheck+=(${values[$i]})
+                i=$i+1
+            done
+            IFS=":"
+            valuesAfterCheck="${values[*]}"
+            echo $valuesAfterCheck
+            IFS=" "
+        else
+            zenity --info --text= "please insert all values"
+        fi
+        if [[ $errors -eq 0 ]] ; then
+            echo $valuesAfterCheck >> $tabName
+        fi
+        
+    }
+    
+    function insertGUI {
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="please use database first "
+            return 0;
+        fi
+        declare -a TablesName
+        IFS=" "
+        TablesName+=( `cut -d: -f1 $CDB"db.config" | tr "\n" " "` )
+        
+        if ! [[ $TablesName ]] ; then
+            zenity --info --text="No tables are here"
+            return 0;
+        fi
+        selectedTable=`zenity --list --height="300" --ok-label "display table" --title="tables" --column="table" ${TablesName[@]}`
+        if [[ $selectedTable ]] ; then
+            dataOfTable=$selectedTable.data
+            structOfTable=$selectedTable.struct
+            declare -a IGcols
+            declare -a getAllDataCols
+            declare -a valsReady
+            IFS=" "
+            IGcols+=( `cut -d: -f1 $CDB$structOfTable | tr "\n" " "` )
+            typeset -i i
+            i=0
+            while [[ $i < `wc -l $CDB$structOfTable | cut -d" " -f1` ]]
+            do
+                addEntries+=("--add-entry=${IGcols[$i]}")
+                i=$i+1
+            done
+            values=`zenity --forms --title "insert statement query" --text="enter values" "${addEntries[@]}"`
+            IFS="|"
+            for valReady in ${values}
+            do
+                valsReady+=($valReady)
+            done
+            ifInserted=`insert into $selectedTable values "${valsReady[@]}"`
+        fi
+        unset valsReady
+        unset addEntries
+        unset IGcols
+    }
+    #createDb
+    #getAllData $1
+    #getData $1 $2 $3
+    #check_dataType $1 $2 $3
+    #res=$?
+    #echo $res
+    #update $1 $2 $3 $4 $5
+    #getAllData $1
+    #delete $1 $2 $3
+    #insert "$1" "$2"
+    
+    function SELECT {
+        
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="please use database first"
+            return 0;
+        fi
+        if [[ $# -lt 2 ]] ; then
+            zenity --info --text="syntax error"
+            return 0;
+        fi
+        typeset -i z
+        typeset -i FromPlace
+        typeset -i WherePlace
+        typeset -i SelectFrom
+        typeset -i SelectTo
+        typeset -i WherePointer
+        WherePointer=0
+        z=0
+        for i in $@
+        do
+            if [[ $i != "," ]] ; then
+                query[$z]=`echo "$i" | sed 's/,//g'`;
+            fi
+            z=$z+1
+        done
+        z=0
+        for i in $@
+        do
+            if [[ ${i^^} == "FROM" ]] ; then
+                FromPlace=$z
+                tableName=${query[$z+1]}
+            fi
+            if [[ ${i^^} == "WHERE" ]] ; then
+                WherePlace=$z
+            fi
+            if [[ $z -gt $WherePlace && $WherePlace -gt 2 ]] ; then
+                conds[$WherePointer]=$i
+                WherePointer=$WherePointer+1
+            fi
+            if [[ ${i^^} == "SELECT" && $FromPlace ]] ; then
+                echo "SELECT from $z to $FromPlace"
+            fi
+            z=$z+1
+        done
+        z=0
+        for i in ${query[@]}
+        do
+            if [[ ${i^^} == "SELECT" ]] ; then
+                continue;
+            fi
+            if [[ ${i^^} == "FROM" ]] ; then
+                break;
+            fi
+            cols[$z]=$i
+            z=$z+1
+        done
+        if [[ $CURDB ]] ; then
+            IssetTable $tableName
+            if [[ $? -eq 1 ]] ; then
+                if [[ $WherePlace -gt 2 ]] ; then
+                    getData $tableName ${conds[0]} ${conds[2]}
+                else
+                    getAllData $tableName
+                fi
+            else
+                zenity --error --title="error" --text="wrong in table name"
+            fi
+        else
+            zenity --error --title="error" --text="please select database"
+        fi
+        unset query
+        unset conds
+        unset cols
+        unset z
+        unset FromPlace
+        unset WherePlace
+        unset SelectFrom
+        unset SelectTo
+        unset WherePointer
+        unset tableName
+    }
+    
+    function queryStFun {
+        typeset -i CancelQueryLoop
+        while ! [[ $CancelQueryLoop -eq 1 ]]
+        do
+            query=`zenity --entry --title="query" --text="insert your query" --width="500"`
+            CancelQueryLoop=$?
+            eval $query
+        done
+    }
+    
+    function welcomeTable {
+        typeset -i breakWelcomeTable
+        resOfWelOfTable=`zenity --list --height="300" --column="select what you want" "1)create table" "2) display table" \
+        "3) show and drop table" "4) unuse DB and go to DB menu" | cut -d")" -f1` ;
+        if ! [[ $resOfWelOfTable ]] ; then
+            exit
+        fi
+        while [[ $breakWelcomeTable != 1 ]]
+        do
+            if [[ $resOfWelOfTable == "1" ]] ; then
+                CreateGUITable
+                elif [[ $resOfWelOfTable == "2" ]] ; then
+                showTables
+                elif [[ $resOfWelOfTable == "3" ]] ; then
+                showTablesAndDrop
+                elif [[ $resOfWelOfTable == "4" ]] ; then
+                CURDB="";
+                CDB=$DBP$CURDB"/"
+                breakWelcomeTable=1
+                continue;
+            fi
+            welcomeTable
+        done
+    }
+    
+    function welcomeDB {
+        typeset -i breakWelcomeDB
+        while [[ $breakWelcomeDB != 1 ]]
+        do
+            resOfWel=""
+            resOfWel=`zenity --cancel-label="exit program" --height="300" --list --column="select what you want" \
+            "1)create database" "2) show databases and use " \
+            "3) drop database" "4) use query statment" "5) exit" | cut -d")" -f1` ;
+            if ! [[ $resOfWel ]] ; then
+                exit
+            fi
+            if [[ $resOfWel == "1" ]] ; then
+                createDbName=`zenity --entry --title="create data base" --text="Enter DB name"`
+                if [[ $? -eq 0 ]] ; then
+                    createDb $createDbName
+                fi
+                elif [[ $resOfWel == "2" ]] ; then
+                showDatabases
+                IssetDB $CURDB
+                if [[ $? -eq 1 ]]; then
+                    welcomeTable
+                fi
+                elif [[ $resOfWel == "3" ]] ; then
+                showDatabasesAndDrop
+                elif [[ $resOfWel == "4" ]] ; then
+                queryStFun
+                elif [[ $resOfWel == "5" ]] ; then
+                exit
+            fi
+            welcomeDB
+        done
+    }
+    
+else
+    zenity --error --title="error" --text="wrong username or password"
+fi
+
+#welcomeDB
+
+# delete database dropped from rdbms.config
+# delete table dropped from db.config
+# primary - not - string - int - date are not allowed names
+
+#
+#A 100% pure Bash function that supports multi-character delimiters is:
+
+#progress
+welcomeDB
+
+function join_by {
+    local d=${1-} f=${2-}
+    if shift 2; then
+        printf %s "$f" "${@/#/$d}"
+    fi
+}

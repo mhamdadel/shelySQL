@@ -1,0 +1,43 @@
+
+#Authored & programmed by : Muhammed Adel
+
++===========================================+
+| shelySQL 1.0 requirements 				|
++===========================================+
+| Kernel: Linuzx 4.18.0-425.3.1.el8.x86_64	|			
+| zenity version 3.28.1						|
++===========================================+
+
++===============================+
+| how to use 					|
++===============================+
+| - use source of RDBMS file	|  
+| - and enjoy 					| 
++===============================+
+
++=======================================================+
+| graphical & qeury statment RDBMS program overview		|
++=======================================================+
+| => Database tools (Graphical & Query statement) <=	|
+| - create database										|
+| - use database										|
+| - drop database										|
+| - create users for database							|
+|														|
+| => table tools (Graphical & Query statement) <=		|
+| - create table (Grapical only)						|
+| - drop table											|
+| - insert into table									|
+| - add primary key										|
+| - data type (string - int)							|
+| - update values										|
+| 														|
+| => another behinded functions <=						|
+| - check is database exist or not						|
+| - check is table exist or not							|
+| - check is column exist or not						|
+| - check is primary exist in table or not				|
+| - check is string is =~ with his column or not		|
++=======================================================+
+
+copyright © 2022 Muhammed Adel
