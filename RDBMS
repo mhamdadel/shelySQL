@@ -1116,8 +1116,8 @@ else
     zenity --error --title="error" --text="wrong username or password"
 fi
 
-#progress
-welcomeDB
+progress
+#welcomeDB
 
 function join_by {
     local d=${1-} f=${2-}
