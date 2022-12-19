@@ -26,7 +26,7 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
     
     PS3="BashSql>"
     DBP="DB/"
-    CURDB=""
+    CURDB="school"
     CDB=$DBP$CURDB"/"
     function check_dataType {
         # $1 value
@@ -714,8 +714,77 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         unset getAllDataCols;
         unset getAllDataRows;
         unset getAllDataCol;
-        unset dat;
+        unset dat; 
+    }
+
+	function getDataD {
+        # $1 tableName
+        # $2 column Name
+        # $3 value of wher conditions
+		# ${@:4} cols
+
+        typeset -a rows
+        typeset -a cols
+        declare -a col
+
+        tableName=$1
+        colName=$2
+        condVal=$3
+		col=(${@:4})
+		IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="\n-please select database first"
+            return 0;
+        fi
+        IssetTable $tableName
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="wrong table name"
+            return 0;
+        fi
+        for c in ${col[@]}
+        do
+			IssetColumn $tableName $c
+		    if [[ $? -eq 0 ]] ; then
+		        zenity --info --title="error" --text="wrong column name : $c"
+		        return 0
+		    fi
+            cols+=(--column=$c)
+			fieldsNum+=(`cut -d: -f1 $CDB$1.struct | grep -w -n "$c" | cut -d: -f1 `)
+        done
         
+        tabName=$CDB/$tableName.data;
+
+        IFS=":"
+		FNum=""
+		if [[ $2 != "" ]] ; then
+			IssetColumn $tableName $colName
+		    if [[ $? -eq 0 ]] ; then
+		        zenity --info --title="error" --text="wrong column name : $colName"
+		        return 0
+		    fi
+			for i in ${fieldsNum[@]}
+			do
+				rows+=(`grep -w "$condVal" $CDB$tableName.data | cut -d: -f"$i"`)
+			done
+		else
+			for i in ${fieldsNum[@]}
+			do
+				rows+=(` cut -d: -f"$i" $CDB$tableName.data `)
+			done
+		fi
+		
+		echo $FNum;
+        
+		#rows+=(`grep -w "$condVal" $CDB$tableName.data | cut -d: -f"${FNum}"`)
+        #rows+=(`grep -w "$condVal" $CDB$tableName.data | tr "\n" ":"`)
+        gt=`zenity --list --title="resualt of SELECT statement" \
+        --height="760" --width="400" \
+        ${cols[@]} "${rows[@]}"`
+		unset fieldsNum
+		unset rows
+		unset cols
+		unset col
+		unset FNum
     }
     
     function unq {
@@ -1009,6 +1078,7 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
             cols[$z]=$i
             z=$z+1
         done
+	
         if [[ $CURDB ]] ; then
             IssetTable $tableName
             if [[ $? -eq 1 ]] ; then
@@ -1116,7 +1186,7 @@ else
     zenity --error --title="error" --text="wrong username or password"
 fi
 
-progress
+#progress
 #welcomeDB
 
 function join_by {

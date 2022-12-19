@@ -586,6 +586,62 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         fi
     }
     
+	function deleteColumn {
+		# $1 table
+		# $2 column
+        
+        IssetTable $1
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid table name"
+            return 0
+        fi
+
+        tableStruct=$CDB$1.struct;
+        tabName=$CDB$1.data;
+		
+		columns=(`cut -d: -f1 $tableStruct | tr "\n" " "`)
+		columnName=`zenity --list --column="columns" "${columns[@]}"`
+		if ! [[ $? -eq 0 ]] ; then
+			return 0
+		fi
+
+		if ! [[ $columnName ]] ; then
+			zenity --error --title="error" --text="column name can not be empty"
+			return 0
+		fi
+        
+        IssetColumn $1 $columnName
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --text="invalid column name"
+            return 0
+        fi
+        
+        colNumInStruct=`cut -d: -f1 $tableStruct | grep -w -n "$columnName" | cut -d: -f1`;
+        sed $colNumInStruct"d" $tableStruct > "$tableStruct".new && rm "$tableStruct" && mv "$tableStruct".new "$tableStruct"
+		cut --complement -d: -f"$colNumInStruct" $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
+    }
+
+	function showTablesAndDeleteColumn {
+        # $1 DataBase Name
+        IssetDB $CURDB
+        if [[ $? -eq 0 ]] ; then
+            zenity --info --title="error" --text="please use database first "
+            return 0;
+        fi
+        declare -a TablesName
+        IFS=" "
+        TablesName+=( `cut -d: -f1 $CDB"db.config" | tr "\n" " "` )
+        
+        if ! [[ $TablesName ]] ; then
+            zenity --info --text="No tables are here"
+            return 0;
+        fi
+        selectedTable=`zenity --list --height="300" --ok-label "display table" --title="tables" --column="table" ${TablesName[@]}`
+        if [[ $selectedTable ]] ; then
+            deleteColumn $selectedTable
+        fi
+    }
+
     function getData {
         # $1 tableName
         # $2 column Name
@@ -895,16 +951,6 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         unset addEntries
         unset IGcols
     }
-    #createDb
-    #getAllData $1
-    #getData $1 $2 $3
-    #check_dataType $1 $2 $3
-    #res=$?
-    #echo $res
-    #update $1 $2 $3 $4 $5
-    #getAllData $1
-    #delete $1 $2 $3
-    #insert "$1" "$2"
     
     function SELECT {
         
@@ -1002,7 +1048,7 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
     function welcomeTable {
         typeset -i breakWelcomeTable
         resOfWelOfTable=`zenity --list --height="300" --column="select what you want" "1)create table" "2) display table" \
-        "3) show and drop table" "4) unuse DB and go to DB menu" | cut -d")" -f1` ;
+        "3) show and drop table" "4) add column" "5) delete column" "6) insert data" "7) unuse DB and go to DB menu" | cut -d")" -f1` ;
         if ! [[ $resOfWelOfTable ]] ; then
             exit
         fi
@@ -1015,6 +1061,15 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
                 elif [[ $resOfWelOfTable == "3" ]] ; then
                 showTablesAndDrop
                 elif [[ $resOfWelOfTable == "4" ]] ; then
+				tableNameToAddNewColumn=`zenity --entry --title="add column" --text="ALTER TABLE" `
+				if [[ $? -eq 0 ]] ; then
+                	addColumn $tableNameToAddNewColumn
+				fi
+                elif [[ $resOfWelOfTable == "5" ]] ; then
+                	showTablesAndDeleteColumn
+                elif [[ $resOfWelOfTable == "6" ]] ; then
+                insertGUI
+                elif [[ $resOfWelOfTable == "7" ]] ; then
                 CURDB="";
                 CDB=$DBP$CURDB"/"
                 breakWelcomeTable=1
@@ -1061,17 +1116,8 @@ else
     zenity --error --title="error" --text="wrong username or password"
 fi
 
+progress
 #welcomeDB
-
-# delete database dropped from rdbms.config
-# delete table dropped from db.config
-# primary - not - string - int - date are not allowed names
-
-#
-#A 100% pure Bash function that supports multi-character delimiters is:
-
-#progress
-welcomeDB
 
 function join_by {
     local d=${1-} f=${2-}
