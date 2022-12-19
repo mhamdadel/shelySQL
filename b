@@ -1,12 +1,6 @@
 #! /bin/bash
-
-for i in ${fieldsNum[@]}
-		do
-			if [[ $FNum == "" ]] ; then
-				FNum+="$i"
-			else
-				FNum+=",$i"
-			fi
-		done
-		echo $FNum;
-
+if [[ $WherePlace -gt 2 ]] ; then
+                    getData $tableName ${conds[0]} ${conds[2]}
+                else
+                    getAllData $tableName
+                fi

@@ -646,6 +646,7 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         # $1 tableName
         # $2 column Name
         # $3 value of wher conditions
+		# $4 COUNT
         tableName=$1
         colName=$2
         condVal=$3
@@ -679,13 +680,20 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         done
         IFS=":"
         rows+=(`grep -w "$condVal" $CDB$tableName.data | tr "\n" ":"`)
-        gt=`zenity --list --title="resualt of SELECT statement" \
-        --height="760" --width="400" \
-        ${cols[@]} "${rows[@]}"`
+		typeset -i count
+		if [[ $4 == "COUNT" ]] ; then
+			count=${#rows[@]}/${#cols[@]}
+			zenity --info --text="count of result : $count"
+		else
+		    gt=`zenity --list --title="resualt of SELECT statement" \
+		    --height="760" --width="400" \
+		    ${cols[@]} "${rows[@]}"`
+		fi
     }
     
     function getAllData {
         # $1 tableName
+		# $2 count
         tabName=$CDB$1.data;
         tableName=$1
         IssetDB $CURDB
@@ -708,9 +716,15 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         done
         IFS=":"
         getAllDataRows+=( `tr "\n" ":" < $tabName` )
-        dat=`zenity --list --title="resualt of SELECT statement" \
-        --height="760" --width="400" \
-        ${getAllDataCols[@]} "${getAllDataRows[@]}"`
+		typeset -i count
+		if [[ $2 == "COUNT" ]] ; then
+			count=${#getAllDataRows[@]}/${#getAllDataCols[@]}
+			zenity --info --text="count of result : $count"
+		else
+		    dat=`zenity --list --title="resualt of SELECT statement" \
+		    --height="760" --width="400" \
+		    ${getAllDataCols[@]} "${getAllDataRows[@]}"`
+		fi
         unset getAllDataCols;
         unset getAllDataRows;
         unset getAllDataCol;
@@ -1082,11 +1096,25 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         if [[ $CURDB ]] ; then
             IssetTable $tableName
             if [[ $? -eq 1 ]] ; then
-                if [[ $WherePlace -gt 2 ]] ; then
-                    getData $tableName ${conds[0]} ${conds[2]}
-                else
-                    getAllData $tableName
-                fi
+				if [[ "${cols[0]}" == "*" ]] ; then
+		            if [[ $WherePlace -gt 2 ]] ; then
+		                getData $tableName ${conds[0]} ${conds[2]}
+		            else
+		                getAllData $tableName
+		            fi
+				elif [[ ${cols[0]} == "COUNT" ]] ; then
+		            if [[ $WherePlace -gt 2 ]] ; then
+		                getData $tableName ${conds[0]} ${conds[2]} COUNT
+		            else
+		                getAllData $tableName COUNT
+		            fi
+				else
+		            if [[ $WherePlace -gt 2 ]] ; then
+		                getDataD $tableName ${conds[0]} ${conds[2]} ${cols[@]}
+		            else
+		                getDataD $tableName "" "" ${cols[@]}
+		            fi
+				fi
             else
                 zenity --error --title="error" --text="wrong in table name"
             fi
