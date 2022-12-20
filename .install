@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if ! [[ -f ~/.local/share/applications/run.desktop ]] ; then
+	cp run.desktop ~/.local/share/applications/
+	if ! [[ -f ~/.icons/shelySQL.png ]] ; then
+		cp res/shelySQL.png ~/.icons/
+	fi
+fi
+

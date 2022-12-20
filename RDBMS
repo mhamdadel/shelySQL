@@ -1,10 +1,10 @@
 #! /bin/bash
+./.install
+auth=`zenity --forms --title "Authintaction" --text  "user: muhammed ps: adel" \
+--add-entry "username" \
+--add-password="password"`
 
-#auth=`zenity --forms --title "Authintaction" --text  "user: mohamed ps: adel" \
-#--add-entry "username" \
-#--add-password="password"`
-
-if ! [[ $auth == "mohamed|adel" ]] ; then
+if [[ $auth == "muhammed|adel" ]] ; then
     # Ansi color code variables
     red="\e[0;91m"
     blue="\e[0;94m"
@@ -1024,8 +1024,10 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
     }
     
     function insert {
-        # $1 table
-        # $2 values
+	# $1 INTO
+        # $2 TableName
+	# $3 VALUES
+        # $4 values
         typeset -a vals
         typeset -a values
         typeset -a valuesAfterCheck
@@ -1309,7 +1311,7 @@ else
     zenity --error --title="error" --text="wrong username or password"
 fi
 
-#progress
+progress
 #welcomeDB
 
 function join_by {
