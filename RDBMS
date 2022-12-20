@@ -520,7 +520,11 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
     }
     
     function addColumn {
-	tableName=$1
+		
+        intRegex='^[0-9]+$';
+        strRegex='^[a-zA-Z][a-zA-Z0-9]+$';
+        dateRegex="^(?:(?:31(\/|-|\.)(?:0?[13578]|1[02]))\1|(?:(?:29|30)(\/|-|\.)(?:0?[13-9]|1[0-2])\2))(?:(?:1[6-9]|[2-9]\d)?\d{2})$|^(?:29(\/|-|\.)0?2\3(?:(?:(?:1[6-9]|[2-9]\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\d|2[0-8])(\/|-|\.)(?:(?:0?[1-9])|(?:1[0-2]))\4(?:(?:1[6-9]|[2-9]\d)?\d{2})$";
+		tableName=$1
         IssetTable $tableName
         if [[ $? -eq 0 ]] ; then
             zenity --error --title="error" --text="please select valid table"
@@ -620,6 +624,97 @@ if ! [[ $auth == "mohamed|adel" ]] ; then
         sed $colNumInStruct"d" $tableStruct > "$tableStruct".new && rm "$tableStruct" && mv "$tableStruct".new "$tableStruct"
 		cut --complement -d: -f"$colNumInStruct" $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
     }
+	
+	function alter {
+		# $1 table
+		# $2 tableName
+		# $3 (add - delete)
+		# $4 column 		
+		# $5 columnName 
+		# $6 datatype
+		# $7 size
+		# $8 primary-not
+		tableName=$2
+        intRegex='^[0-9]+$';
+        strRegex='^[a-zA-Z][a-zA-Z0-9]+$';
+		if [[ ${1^^} == "TABLE" && ( ${3^^} == "ADD" || ${3^^} == "DELETE" ) && ${4^^} == "COLUMN" ]] ; then
+			IssetTable $tableName
+			if [[ $? -eq 0 ]] ; then
+			    zenity --error --title="error" --text="please select valid table"
+			    return 0
+			fi
+			nameOfColumn=$5
+			typeOfColumn=$6
+			sizeOfColumn=$7
+			primOfColumn=$8
+			if [[ ${3^^} == "ADD" ]] ; then
+				tableName=$2
+				IssetColumn $tableName $nameOfColumn
+				if [[ $? -eq 1 ]] ; then
+				    textErr+=("\n-column name is exist")
+				    errors=$errors+1
+				fi
+				if ! [[ $nameOfColumn =~ $strRegex ]] ; then
+				    textErr+=("\n-column name cant be sepical character ( a : z ), ( 1 : 9 ) ,and ( _ - )")
+				    errors=$errors+1
+				fi
+				if ! [[ $typeOfColumn == "string" || $typeOfColumn == "int" || $typeOfColumn == "date" ]] ; then
+				    textErr+=("\n-we have only (string - int - date)")
+				    errors=$errors+1
+				fi
+				if ! [[ $sizeOfColumn =~ $intRegex ]] ; then
+				    textErr+=("\n-wrong size please enter only numbers")
+				    errors=$errors+1
+				fi
+				if ! [[ $primOfColumn == "primary" || $primOfColumn == "not" ]] ; then
+				    textErr+=("\n-we have only (primary - not)")
+				    errors=$errors+1
+				fi
+				isPrimExist=`cut -d: -f4 $CDB$tableName.struct | grep -w -c "^primary$"`;
+				if ! [[ $isPrimExist -eq 0 ]] && [[ "$primOfColumn" == "primary" ]] ; then
+				    textErr+=("you can not add more than primary key")
+				    errors=$errors+1
+				fi
+				
+				if [[ $primOfColumn == "primary" && $typeOfColumn != "int" ]] ; then
+				    textErr+=("\n-primary key must be int")
+				    errors=$errors+1
+				fi
+				if [[ $errors -gt 0 ]] ; then
+				    zenity --info --title="error" --text="${textErr[@]}"
+				    pointerOfCol=$pointerOfCol
+				    errors=0
+				    textErr=""
+				    return 0
+				else
+				    pointerOfCol=$pointerOfCol+1
+				    echo "$nameOfColumn":"$typeOfColumn":"$sizeOfColumn":"$primOfColumn" >> $CDB$tableName.struct
+				fi
+			elif [[ ${3^^} ]] ; then
+				tableStruct=$CDB$2.struct;
+        		tabName=$CDB$2.data;
+				columnName=$5
+
+				if ! [[ $columnName ]] ; then
+					zenity --error --title="error" --text="column name can not be empty"
+					return 0
+				fi
+				
+				IssetColumn $tableName $columnName
+				if [[ $? -eq 0 ]] ; then
+				    zenity --info --text="invalid column name"
+				    return 0
+				fi
+				
+				colNumInStruct=`cut -d: -f1 $tableStruct | grep -w -n "$columnName" | cut -d: -f1`;
+				sed $colNumInStruct"d" $tableStruct > "$tableStruct".new && rm "$tableStruct" && mv "$tableStruct".new "$tableStruct"
+				cut --complement -d: -f"$colNumInStruct" $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
+			fi
+		else
+			zenity --error --title="error" --text="syntax error"
+		fi
+	
+	}	
 
 	function showTablesAndDeleteColumn {
         # $1 DataBase Name

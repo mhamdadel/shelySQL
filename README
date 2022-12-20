@@ -58,4 +58,62 @@
 | - check is string is =~ with his column or not	|
 +=======================================================+
 
++===============================+
+|            examples           |
++===============================+
+========> drop statment <========
+drop table tableName
+drop database dataBaseName
+
+========> drop statment <========
+#create statment
+create table tableName
+create database dataBaseName
+
+========> drop statment <========
+#use statment
+use dataBaseName
+
+========> drop statment <========
+#select statment
+select * from table
+select COUNT from table
+select col1 col2 from table
+
+========> alter statment <========
+alter table tableName add column columnName datatype size ( primary-not )
+alter table tableName delete column columnName
+
+========> select statment with where condition <========
+select * from table where id = 5
+select COUNT from table where id = 5
+select col1 col2 from table where col2 = "name"
+
+========> delete statment <========
+delete from table where col1="name"
+
+========> update statment <========
+update table set col1 = "value" Where col2 = "val"
+
+========> insert statment <========
+insert into table values valForCol1 , valForCol1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 copyright © 2022 Muhammed Adel

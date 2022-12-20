@@ -1,0 +1,4 @@
+id int pk:name string uniqe
+1 mohamed
+2 adel
+3 hamed
