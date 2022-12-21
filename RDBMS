@@ -18,7 +18,6 @@ if [[ $auth == "muhammed|adel" ]] ; then
     uline="\e[4m"
     reset="\e[0m"
     
-    alias select="SELECT"
     #zenity --info --title="success" --text="succses you now logged in"
     set -f
     export LC_COLLATE=C
@@ -51,6 +50,12 @@ if [[ $auth == "muhammed|adel" ]] ; then
             fi
             elif [[ "$datatype" -eq "string" ]]; then
             if	[[ $1 =~ $strRegex ]] ; then
+                return 1;
+            else
+                return 0;
+            fi
+            elif [[ "$datatype" -eq "date" ]]; then
+            if	[[ $1 =~ $dateRegex ]] ; then
                 return 1;
             else
                 return 0;
@@ -941,6 +946,7 @@ if [[ $auth == "muhammed|adel" ]] ; then
         # $8 =
         # $9 codition value
         
+        intRegex='^[0-9]+$';
         
         IssetTable $1
         if [[ $? -eq 0 ]] ; then
@@ -952,20 +958,20 @@ if [[ $auth == "muhammed|adel" ]] ; then
             zenity --info --text="syntax error"
             return 0
         fi
-        
-        IssetColumn $1 $3
+
+        IssetColumn "$1" "$3"
         if [[ $? -eq 0 ]] ; then
             zenity --info --text="invalid column name : $3"
             return 0
         fi
-        
-        IssetColumn $1 $7
+
+        IssetColumn "$1" "$7"
         if [[ $? -eq 0 ]] ; then
             zenity --info --text="invalid column name : $7"
             return 0
         fi
-        
-        check_dataType $5 $1 $3
+
+        check_dataType "$5" "$1" "$3"
         if [[ $? == 0 ]] ; then
             return 0
         fi
@@ -976,7 +982,15 @@ if [[ $auth == "muhammed|adel" ]] ; then
             newVal=$5
             IsPrimRepeat=`cut -d: -f$primaryNum $CDB$1.data | grep -w "^$newVal$"`
             if [[ $IsPrimRepeat ]] ; then
-                zenity --info --text="primary key can not repeat"
+                zenity --error --text="primary key can not repeat"
+                return 0
+            fi
+            if ! [[ $newVal =~ ^[0-9]+$ ]] ; then
+                zenity --error --text="primary key must be integer"
+				if [[ $newVal -le 0 ]] ; then
+                	zenity --error --text="primary key must greater than zero"
+                	return 0
+				fi
                 return 0
             fi
         fi
@@ -986,7 +1000,10 @@ if [[ $auth == "muhammed|adel" ]] ; then
         condValue=$9
         colNumInStruct=`cut -d: -f1 $tableStruct | grep -w -n "$7" | cut -d: -f1`;
         valColNum=`grep -w -n "$3" $tableStruct | cut -d: -f1`;
-        awk -v val="$replacing_dt" -v condVal="$condValue" -v valColNum="$valColNum" -v condCol="$colNumInStruct" 'BEGIN{FS=OFS=":";} $condCol==condVal{$valColNum = val;} 1' $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
+	
+        awk -v val="$replacing_dt" -v condVal="$condValue" -v valColNum="$valColNum" -v condCol="$colNumInStruct"\
+		-v chCol="$3" -v primKeyCol="$primaryKeyCol" \
+		'BEGIN{pkupdated=0;FS=OFS=":";} $condCol==condVal{if((pkupdated == 0 && chCol == primKeyCol) || (chCol != primKeyCol) ){$valColNum = val;pkupdated=1}} 1' $tabName > "$tabName".new && rm "$tabName" && mv "$tabName".new "$tabName"
     }
     
     function delete {
@@ -1002,7 +1019,12 @@ if [[ $auth == "muhammed|adel" ]] ; then
             zenity --info --text="invalid table name"
             return 0
         fi
-        
+		
+		if [[ $# -eq 2 && ${1^^} == "FROM" ]] ; then
+		    echo "" > $CDB$2.data
+		    return 0
+	 	fi
+
         if [[ ${1^^} != "FROM" || ${3^^} != "WHERE" || ${5} != "=" ]] ; then
             zenity --info --text="syntax error"
             return 0
@@ -1024,9 +1046,9 @@ if [[ $auth == "muhammed|adel" ]] ; then
     }
     
     function insert {
-	# $1 INTO
+		# $1 INTO
         # $2 TableName
-	# $3 VALUES
+		# $3 VALUES
         # $4 values
         typeset -a vals
         typeset -a values
@@ -1067,8 +1089,8 @@ if [[ $auth == "muhammed|adel" ]] ; then
                     zenity --info --text= "error in column ${res[$i]} must be ${dataTypes[$i]}"
                     errors=$errors+1
                 fi
-                if [[ "${primary[$i]}" == "primary" ]] ; then
-                    if [[ `cut -d: -f"${i+1}" $tabName | grep -c -w "^$values$"` -gt 0 ]] ; then
+                if [[ "${primary[$i]}" == "primary" ]] ; then	
+                    if [[ `cut -d: -f"${i+1}" $tabName | grep -c -w "^$values$"` -gt 0 || $values -lt 1 ]] ; then
                         zenity --info --text="you cannot repeat primary key"
                         return 0;
                     fi
@@ -1236,6 +1258,7 @@ if [[ $auth == "muhammed|adel" ]] ; then
         do
             query=`zenity --entry --title="query" --text="insert your query" --width="500"`
             CancelQueryLoop=$?
+			alias select="SELECT"
             eval $query
         done
     }

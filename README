@@ -74,20 +74,19 @@ create database dataBaseName
 #use statment
 use dataBaseName
 
-========> drop statment <========
-#select statment
+========> select statment <========
 select * from table
 select COUNT from table
 select col1 col2 from table
-
-========> alter statment <========
-alter table tableName add column columnName datatype size ( primary-not )
-alter table tableName delete column columnName
 
 ========> select statment with where condition <========
 select * from table where id = 5
 select COUNT from table where id = 5
 select col1 col2 from table where col2 = "name"
+
+========> alter statment <========
+alter table tableName add column columnName datatype size ( primary-not )
+alter table tableName delete column columnName
 
 ========> delete statment <========
 delete from table where col1="name"
@@ -99,21 +98,24 @@ update table set col1 = "value" Where col2 = "val"
 insert into table values valForCol1 , valForCol1
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 copyright © 2022 Muhammed Adel
+
+
+1:Hamed:
+2:Adel Hamed:
+99:Hamed:
+5:Kamal:
+7:Abdollah Hashim:
+10:Islam Samy:
+11:mohamed:
+13:Ali S- Ahamed:
+15:Muhammed Adel:
+16:Muhammed El-shall:
+
+
+
+
+
+
+
+

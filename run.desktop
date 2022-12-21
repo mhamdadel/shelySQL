@@ -2,7 +2,7 @@
 Version=1.0
 Name=ShelySQL
 Comment=Test the terminal running a command inside it
-Exec=bash -c 'cd ~/Documents/script-bash/project;. RDBMS;$SHELL'
+Exec=bash -c 'cd ~/Documents/script-bash/project;$SHELL;. RDBMS;'
 Icon=shelySQL.png
 Terminal=false 
 Type=Application
